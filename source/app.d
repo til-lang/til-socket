@@ -79,6 +79,10 @@ class TcpSocketServer : Item
     {
         // TODO: split this into new methods!
 
+        // This yield is coming in the foreach in
+        // the next Til version:
+        context.yield();
+
         // Send everything from each client.sendBuffer:
         foreach (index, client; clients)
         {
@@ -120,7 +124,6 @@ class TcpSocketServer : Item
         {
             if (socketSet.isSet(client.connection))
             {
-                debug {stderr.writeln(" client isSet!");}
                 // TODO: how to clean up the buffer or add to it
                 // instead of simply overwriting?
                 client.receiveBufferSize = client.connection.receive(
@@ -130,34 +133,51 @@ class TcpSocketServer : Item
                 {
                     debug {stderr.writeln("SOCKET ERROR! ", client);}
                 }
-                debug {
-                    stderr.writeln(
-                        " RECEIVED ",
-                        client.receiveBufferSize,
-                        " bytes: ",
-                        client.receiveBuffer[0..client.receiveBufferSize]
-                    );
+                else if (client.receiveBufferSize == 0)
+                {
+                    try
+                    {
+                        // if the connection closed due to an error, remoteAddress() could fail
+                        // XXX: is it okay to ALWAYS call this method???
+                        client.connection.remoteAddress();
+                    }
+                    catch (SocketException)
+                    {
+                        // writeln("Connection closed.");
+                        this.remove(client);
+                        context.exitCode = ExitCode.Skip;
+                        return context;
+                    }
+                    continue;
+                }
+                else
+                {
+                    debug {
+                        stderr.writeln(
+                            " RECEIVED ",
+                            client.receiveBufferSize,
+                            " bytes: ",
+                            client.receiveBuffer[0..client.receiveBufferSize]
+                        );
+                    }
                 }
             }
         }
-
-        debug {stderr.writeln("isSet server socket?");}
 
         if (socketSet.isSet(socket))
         {
             auto s = socket.accept();
             auto connection = new TcpSocketConnection(this, s);
+            debug {stderr.writeln(" NEW CONNECTION:", connection);}
+            // TODO: fix terminology. Is it a connection or a client???
             this.clients ~= connection;
             context.push(connection);
             context.exitCode = ExitCode.Continue;
-        }
-        else
-        {
-            context.exitCode = ExitCode.Skip;
+            return context;
         }
 
-        debug {stderr.writeln("end");}
-
+        debug {stderr.writeln("SKIP");}
+        context.exitCode = ExitCode.Skip;
         return context;
     }
 
