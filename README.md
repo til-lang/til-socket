@@ -1,19 +1,25 @@
 # til-socket
 
-## Build
+## Install
 
-1. `make`
+Use [til-pkg](https://github.com/til-lang/til-pkg) to install it easily:
+
+```bash
+$ til install socket
+```
 
 ## Usage
 
 ```tcl
 socket.tcp.server "*" 8000 | foreach connection {
     spawn {
+        autoclose $connection
         print "new connection: $connection"
-        receive $connection | as data
-        print " data: $data"
-        send $connection [byte_vector 52 53 54]
-        close $connection
+
+        receive $connection | to.string | as data
+        print " received: $data"
+
+        to.byte_vector "pong: $data" | send $connection
     }
 }
 ```

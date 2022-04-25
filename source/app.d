@@ -232,6 +232,11 @@ extern (C) CommandsMap getCommands(Escopo escopo)
         */
         return context;
     });
+    connectionCommands["open"] = new Command((string path, Context context)
+    {
+        // So that a connection can be used with autoclose.
+        return context;
+    });
     connectionCommands["close"] = new Command((string path, Context context)
     {
         auto connection = context.pop!TcpSocketConnection();
